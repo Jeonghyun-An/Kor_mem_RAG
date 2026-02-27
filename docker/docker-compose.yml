@@ -1,53 +1,305 @@
-version: "3.8"
+version: "3.9"
+
+x-kornet: &kornet
+  networks:
+    - kor-mem-net
 
 services:
-  milvus-standalone:
-    image: milvusdb/milvus:v2.4.0
-    ports:
-      - "19530:19530"
-    volumes:
-      - ./docker/milvus:/var/lib/milvus
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-    depends_on:
-      - etcd
-      - minio
-
+  # ================================================================
+  # etcd  –  Library_AI_land와 동일한 environment 방식
+  # ================================================================
   etcd:
-    image: quay.io/coreos/etcd:v3.5.5
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: kormem-etcd
+    environment:
+      ETCD_DATA_DIR: "/etcd"
+      ETCD_AUTO_COMPACTION_RETENTION: "1"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+      ETCD_ENABLE_V2: "true"
+      ETCD_LOG_LEVEL: "info"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_PEER_URLS: "http://0.0.0.0:2380"
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: "http://etcd:2380"
+      ETCD_INITIAL_CLUSTER: "default=http://etcd:2380"
+      ETCD_NAME: "default"
+      ETCDCTL_API: "3"
     volumes:
-      - ./docker/etcd:/etcd
+      - kormem_etcd_data:/etcd
+    <<: *kornet
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "etcdctl",
+          "endpoint",
+          "health",
+          "--endpoints=http://127.0.0.1:2379",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 20s
+    restart: unless-stopped
 
+  # ================================================================
+  # MinIO  –  20000/20001 (library: 19000/19001 충돌 회피)
+  # ================================================================
   minio:
     image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - ./docker/minio:/data
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+    container_name: kormem-minio
     command: server /data --console-address ":9001"
-
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     volumes:
-      - ./backend:/app
-    env_file: .env
+      - kormem_minio_data:/data
+    ports:
+      - "20000:9000" # library: 19000
+      - "20001:9001" # library: 19001
+    <<: *kornet
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  # ================================================================
+  # minio-init  –  버킷 자동 생성 (library 패턴 그대로)
+  # ================================================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: kormem-minio-init
+    <<: *kornet
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: "kormem-bucket"
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+      mc alias set myminio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY} &&
+      mc mb -p myminio/$${MINIO_BUCKET} || true &&
+      mc anonymous set none myminio/$${MINIO_BUCKET} || true &&
+      echo '[minio-init] bucket ensured: ' $${MINIO_BUCKET}
+      "
+    restart: "no"
+
+  # ================================================================
+  # Milvus  –  v2.2.11 (library와 동일 버전), 외부 포트 노출 없음
+  # ================================================================
+  milvus:
+    image: milvusdb/milvus:v2.2.11
+    container_name: kormem-milvus
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: "etcd:2379"
+      MINIO_ADDRESS: "minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET_NAME: "kormem-bucket"
+    volumes:
+      - kormem_milvus_data:/var/lib/milvus
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    <<: *kornet
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 300s
+    restart: unless-stopped
+
+  # ================================================================
+  # vLLM  –  18082:8000 (library: 18080 충돌 회피)
+  #           이미지/설정은 library 패턴과 동일
+  # ================================================================
+  vllm:
+    image: vllm/vllm-openai:latest-cu130
+    container_name: kormem-vllm
+    <<: *kornet
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-  frontend:
-    build: ./frontend
+              count: all
+              capabilities: ["gpu"]
+    shm_size: "16g"
+    environment:
+      HUGGINGFACE_HUB_TOKEN: ${HUGGINGFACE_TOKEN}
+      HF_TOKEN: ${HUGGINGFACE_TOKEN}
+      HF_HOME: "/models"
+      CUDA_VISIBLE_DEVICES: "0"
+      NVIDIA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+      TRANSFORMERS_OFFLINE: "0"
+      VLLM_WORKER_MULTIPROC_METHOD: "spawn"
+    volumes:
+      - /data/models/.hf-cache:/models:rw
+    command:
+      - ${VLLM_MODEL:-LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct}
+      - --served-model-name
+      - ${VLLM_SERVED_NAME:-exaone}
+      - --download-dir
+      - /models
+      - --max-model-len
+      - "8192"
+      - --dtype
+      - bfloat16
+      - --gpu-memory-utilization
+      - "0.40"
+      - --max-num-seqs
+      - "8"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
     ports:
-      - "3000:3000"
+      - "18082:8000" # library: 18080
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 600s
+    restart: unless-stopped
+
+  # ================================================================
+  # FastAPI  –  18001:8000 (library: 18000 충돌 회피, 내부는 8000)
+  # ================================================================
+  fastapi:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: kormem-fastapi
+    <<: *kornet
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+    environment:
+      IS_DOCKER: "true"
+      PYTHONUNBUFFERED: "1"
+      CUDA_VISIBLE_DEVICES: "0"
+
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_SECURE: "false"
+      MINIO_BUCKET: "kormem-bucket"
+
+      MILVUS_HOST: "milvus"
+      MILVUS_PORT: "19530"
+      MILVUS_COLLECTION: "korean_memory"
+      MILVUS_METRIC_TYPE: "IP"
+
+      VLLM_BASE_URL: "http://vllm:8000"
+      VLLM_MODEL_NAME: ${VLLM_SERVED_NAME:-exaone}
+
+      EMBEDDING_MODEL_NAME: "BAAI/bge-m3"
+      EMBEDDING_BATCH_SIZE: "32"
+      EMBEDDING_MAX_LENGTH: "512"
+
+      RAG_TOP_K: "8"
+      RAG_SCORE_THRESHOLD: "0.1"
+      RAG_MAX_TOKENS: "1500"
+    volumes:
+      - /data/models/.hf-cache:/models
+    ports:
+      - "18001:8000" # library: 18000 / fastapi 내부포트: 8000
     depends_on:
-      - backend
+      milvus:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      # vllm:
+      #   condition: service_healthy  # vllm 로딩 전에 fastapi 사용 가능하도록 주석 처리
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+  # ================================================================
+  # Nuxt.js  –  내부 3000, 외부 노출 없음 (nginx 통해 접근)
+  # ================================================================
+  nuxt:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.nuxt
+    container_name: kormem-nuxt
+    <<: *kornet
+    environment:
+      NUXT_PUBLIC_API_BASE: "/api"
+      NITRO_HOST: "0.0.0.0"
+      NITRO_PORT: "3000"
+      PORT: "3000"
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ================================================================
+  # Nginx  –  91:80 (library: 90 충돌 회피)
+  #            nginx config 절대경로: /data/kormem/runtime/nginx/
+  # ================================================================
+  gateway:
+    image: nginx:alpine
+    container_name: kormem-gateway
+    <<: *kornet
+    volumes:
+      - /data/kormem/runtime/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /data/kormem/runtime/nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "91:80" # library: 90
+    depends_on:
+      - nuxt
+      - fastapi
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+# ================================================================
+# 볼륨 (external, setup-volumes.sh로 사전 생성)
+# ================================================================
+volumes:
+  kormem_etcd_data:
+    external: true
+    name: kormem_etcd_data
+  kormem_milvus_data:
+    external: true
+    name: kormem_milvus_data
+  kormem_minio_data:
+    external: true
+    name: kormem_minio_data
+
+# ================================================================
+# 네트워크 (external, setup-volumes.sh로 사전 생성)
+# ================================================================
+networks:
+  kor-mem-net:
+    external: true
+    name: kor-mem-net
