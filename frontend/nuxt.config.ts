@@ -51,7 +51,7 @@ export default defineNuxtConfig({
     "~/assets/css/main.css",
   ],
 
-  compatibilityDate: "2026-01-21",
+  compatibilityDate: "2026-02-27",
 
   vite: {
     server: {

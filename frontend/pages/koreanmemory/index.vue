@@ -12,7 +12,7 @@
       <!-- 헤더: 로고 + 토글 -->
       <div class="left_menu_hd">
         <a href="#;" class="hd_logo view_ctr" @click.prevent="resetHome">
-          <img src="/img/layout/km_logo.svg" alt="코리안메모리 AI 검색" />
+          <img src="/img/layout/km_logo.png" alt="코리안메모리 AI 검색" />
         </a>
         <button
           class="left_menu_trigger"
@@ -76,7 +76,7 @@
         </div>
         <div class="info_wrap ty_01">
           <a
-            href="https://www.memory.go.kr"
+            href="https://nl.go.kr/koreanmemory/"
             target="_blank"
             class="info_item ty_01"
           >
@@ -96,7 +96,7 @@
       <div class="search_wrap_hd">
         <div class="area">
           <img
-            src="/img/layout/km_logo.svg"
+            src="/img/layout/km_logo.png"
             alt="코리안메모리 AI 검색"
             class="hd_logo"
           />
@@ -334,6 +334,9 @@
 
 <script setup lang="ts">
 import { marked } from "marked";
+import { useKorMemAPI } from "@/composables/useKorMemAPI";
+import { useSearchHistory } from "@/composables/useSearchHistory";
+import { computed, ref } from "vue";
 
 definePageMeta({ layout: false });
 useHead({ title: "코리안메모리 AI 검색" });
