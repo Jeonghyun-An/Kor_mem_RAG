@@ -107,7 +107,7 @@
       <div class="search_main">
         <div class="inner">
           <img
-            src="/img/main/km_title.svg"
+            src="/img/layout/km_logo_main.png"
             alt="코리안메모리 AI 도서정보 검색"
             style="max-width: 24rem; margin: 0 auto 1rem"
           />
@@ -459,8 +459,25 @@ const handleSearch = async () => {
 <style scoped>
 /* 히스토리 스크롤 */
 .history_con_wrap--scrollable {
-  max-height: calc(100vh - 220px);
+  max-height: calc(95vh - 220px);
   overflow-y: auto;
   padding-right: 0.25rem;
+}
+.search_main_wrap {
+  min-height: 95vh;
+  flex-direction: column;
+}
+.search_main {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+}
+.inner {
+  max-width: 960px;
+  text-align: center;
+}
+.inner > img {
+  margin: 0 auto;
 }
 </style>
