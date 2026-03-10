@@ -79,7 +79,7 @@ def _fallback_keywords(title_main: str, title_sub: str) -> list[str]:
 
 async def retrieve_chunks(
     query: str,
-    top_k: int = 8,
+    top_k: int = 12,
     badge_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     q_emb = encode([query], normalize=True)[0]
@@ -141,5 +141,11 @@ async def retrieve_chunks(
     for i, h in enumerate(hits):
         h["display_score"] = norm[i]
 
-    filtered = [h for h in hits if h["display_score"] >= SCORE_THRESHOLD]
+    RAW_SCORE_THRESHOLD = float(os.getenv("RAG_RAW_SCORE_THRESHOLD", "0.45"))
+
+    filtered = [
+        h for h in hits
+        if h["display_score"] >= SCORE_THRESHOLD
+        and h["raw_score"] >= RAW_SCORE_THRESHOLD
+    ]
     return filtered[:top_k]

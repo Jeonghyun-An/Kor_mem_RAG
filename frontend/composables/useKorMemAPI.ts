@@ -52,7 +52,7 @@ export const useKorMemAPI = () => {
       body: JSON.stringify({
         query,
         badge_filter: badgeFilter || null,
-        top_k: 8,
+        top_k: 12,
         stream: true,
       }),
       signal,
@@ -123,7 +123,7 @@ export const useKorMemAPI = () => {
   }) => {
     const url = new URL(`${apiBase.value}/search`);
     url.searchParams.set("q", params.q);
-    url.searchParams.set("top_k", String(params.top_k ?? 8));
+    url.searchParams.set("top_k", String(params.top_k ?? 12));
     if (params.badge) url.searchParams.set("badge", params.badge);
 
     const res = await $fetch<{
