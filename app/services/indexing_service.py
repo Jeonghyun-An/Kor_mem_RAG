@@ -48,41 +48,42 @@ def _split_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP)
 
 def _make_chunks(item: Dict) -> List[Dict]:
     """하나의 item → 복수 chunk dict"""
-    item_id = str(item.get("id", uuid.uuid4()))
-    title_main = item.get("title", "")
-    badge = item.get("badge", "")
-    keywords = item.get("keywords", [])
-    provider = item.get("provider", "")
-    date_registered = str(item.get("date_registered", ""))
-    date_modified   = str(item.get("date_modified", ""))
-    detail_url      = item.get("detail_url", "")
-    thumbnail       = item.get("thumbnail", "")
+    item_id     = str(item.get("data_idx", uuid.uuid4()))
+    title_main  = item.get("title_main") or item.get("title", "")
+    badge       = item.get("badge", "")
+    thumbnail   = item.get("thumbnail", "")
+    keywords    = item.get("keywords", [])
 
-    # sub_pages에서 본문 수집
     sub_pages = item.get("sub_pages", [])
     chunks = []
     for pi, page in enumerate(sub_pages):
-        title_sub = page.get("title", "")
-        content   = page.get("content", "")
+        title_sub  = page.get("title_sub", "")
+        detail_url = page.get("detail_url", "")
+        detail     = page.get("detail", {})
+
+        content         = detail.get("body_text", "")
+        provider        = detail.get("provider", "")
+        date_registered = detail.get("date_registered", "")
+
         if not content:
             continue
+
         for ci, text in enumerate(_split_text(content)):
             chunk_id = f"{item_id}_p{pi}_c{ci}"
             chunks.append({
-                "chunk_id":       chunk_id,
-                "item_id":        item_id,
-                "text":           text,
-                "title_main":     title_main,
-                "title_sub":      title_sub,
-                "badge":          badge,
-                "keywords":       json.dumps(keywords, ensure_ascii=False),
-                "provider":       provider,
-                "detail_url":     detail_url,
-                "thumbnail":      thumbnail,
+                "chunk_id":        chunk_id,
+                "item_id":         item_id,
+                "text":            text,
+                "title_main":      title_main,
+                "title_sub":       title_sub,
+                "badge":           badge,
+                "keywords":        json.dumps(keywords, ensure_ascii=False),
+                "provider":        provider,
+                "detail_url":      detail_url,
+                "thumbnail":       thumbnail,
                 "date_registered": date_registered,
             })
     return chunks
-
 
 # ==================== 메인 인덱싱 ====================
 
@@ -97,8 +98,7 @@ async def run_full_index():
     with open(DATA_PATH, encoding="utf-8") as f:
         raw = json.load(f)
 
-    # 리스트 또는 딕셔너리 둘 다 처리
-    items: List[Dict] = raw if isinstance(raw, list) else list(raw.values())
+    items: List[Dict] = raw if isinstance(raw, list) else raw.get("items", list(raw.values()))
     print(f"[INDEX] Loaded {len(items)} items")
 
     # 청킹
