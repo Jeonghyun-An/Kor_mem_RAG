@@ -165,7 +165,7 @@ body {
 
 :root {
   /*color*/
-  --body: #f0f3f8;
+  --body: #f6f6f6;
   --blue: #007bff;
   --red: #dc3545;
   --white: #fff;
@@ -180,10 +180,9 @@ body {
   --gray70: #666666;
   --gray80: #333333;
   --gray90: #1d1d1d;
-  --primary: #004e97;
-  --primary5: #f3f9ff;
-  --primary10: #d8ecff;
-  --primary20: #e6f3ff;
+  --primary: #b47621;
+  --primary5: #fffaf2;
+  --primary10: #ffeed8;
 }
 
 h1,
@@ -250,7 +249,8 @@ select {
   display: inline-block;
 }
 :focus {
-  outline: none;
+  outline: 2px dashed #256ef4;
+  outline-offset: 2px;
   transition: none;
 }
 .select_box_wrap {
@@ -449,15 +449,14 @@ textarea[readonly] {
   color: #667183 !important;
 }
 
-@media (max-width: 1024px) {
-  html,
-  body {
-    font-size: 18px;
-  }
-}
+/*@media (max-width: 1024px) {*/
+/*    html, body {*/
+/*        font-size: 18px;*/
+/*    }*/
+/*}*/
 @media (max-width: 768px) {
   html,
   body {
-    font-size: 16px;
+    font-size: 18px;
   }
 }
