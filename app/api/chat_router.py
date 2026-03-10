@@ -226,81 +226,124 @@ def _build_outline_context_for_story(
     }
     return story_context, story_source
 
+def _build_ui_sources(chunks: List[Dict[str, Any]], limit: int = 12) -> List[Dict[str, Any]]:
+    """
+    프론트 relatedResources / relatedCollections / relatedKeywords 용 카드 데이터
+    """
+    out: List[Dict[str, Any]] = []
+    seen = set()
 
+    for c in chunks:
+        key = c.get("chunk_id") or f"{c.get('item_id','')}_{c.get('title_sub','')}"
+        if not key or key in seen:
+            continue
+        seen.add(key)
+
+        out.append(
+            {
+                "chunk_id": c.get("chunk_id", ""),
+                "item_id": c.get("item_id", ""),
+                "title_main": c.get("title_main", ""),
+                "title_sub": c.get("title_sub", ""),
+                "badge": c.get("badge", ""),
+                "keywords": c.get("keywords", []) or [],
+                "provider": c.get("provider", ""),
+                "detail_url": c.get("detail_url", ""),
+                "thumbnail": c.get("thumbnail", ""),
+                "score": round(float(c.get("display_score", 0.0)), 3),
+                "text_preview": (c.get("text", "") or "")[:200],
+            }
+        )
+
+        if len(out) >= limit:
+            break
+
+    return out
 def _wrap_context_for_llm(query: str, story_contexts: List[str]) -> str:
-    """
-    llm_service.stream_llm(query, context)에 들어갈 최종 context.
-    SYSTEM_PROMPT는 그대로 두고, 여기서 출력 형식/규칙을 강제한다.
-    """
-    # 너무 길면 전체 context를 잘라서 안전장치
     joined = "\n\n---\n\n".join(story_contexts)
     joined = _truncate(joined, MAX_CONTEXT_CHARS_TOTAL)
 
     return f"""
-[작업 지시]
-당신은 아래 [STORY]들의 [SUBSTORIES]를 기반으로 답해야 합니다.
+당신은 코리안메모리 AI 어시스턴트입니다.
+사용자 질문에 대해 제공된 자료만 바탕으로 자연스럽고 간결한 '질의 요약'만 작성하세요.
 
-필수 규칙:
-1) 각 STORY마다 "서브스토리(title_sub)"를 빠짐없이 전부 포함해서 요약하세요.
-2) 각 서브스토리는 최대 2문장으로 요약하세요.
-3) 맨 위에 STORY별로 3~5줄 '전체 요약'을 먼저 제공합니다.
-4) 사용자의 질문("{query}")과 직접 관련된 포인트를 우선 배치하고, 관련이 낮은 서브스토리는 더 짧게 써도 됩니다(하지만 누락 금지).
-5) 자료에 없는 내용은 추측하지 말고 "제공된 자료에서 찾을 수 없습니다"라고 명시하세요.
-6) 각 STORY 블록 끝에는 '추천 키워드'와 '링크'를 반드시 포함하세요.
+절대 규칙:
+1. 답변은 본문 요약만 작성합니다.
+2. "참고 자료", "관련 컬렉션", "관련 자원", "링크", "추천 키워드" 같은 제목이나 섹션을 절대 출력하지 마세요.
+3. 목록형(-, 1), 2))으로 쓰지 말고 자연스러운 문단형 설명으로 작성하세요.
+4. 4~7문장 정도의 한국어 문단으로 작성하세요.
+5. 자료에 없는 내용은 추측하지 마세요.
+6. 본문 마지막에 링크나 제목 목록을 붙이지 마세요.
+7. 출력은 오직 요약 본문만 생성하세요.
 
-[출력 포맷(고정)]
-## 추천 스토리 1: <title_main>
-- 한줄 요약: ...
-- 전체 요약:
-  - ...
-  - ...
-- 서브스토리 목차 요약:
-  1) <title_sub>: (최대 2문장)
-  2) <title_sub>: (최대 2문장)
-  ...
-- 추천 키워드: ...
-- 링크: ...
+사용자 질문:
+{query}
 
-(스토리 2, 3도 동일)
-
-[참고 자료]
+참고 자료:
 {joined}
 """.strip()
-
 
 # ==================== SSE Generator ====================
 
 async def _sse_generator(request: ChatRequest):
     try:
-        # 1) 1차 검색 (스토리 후보 확보)
+        # 1) 1차 검색
         seed_chunks = await retrieve_chunks(
             query=request.query,
             top_k=request.top_k,
             badge_filter=request.badge_filter,
         )
 
-        # 2) 스토리 2~3개 선정
+        # UI용 관련 자원 카드
+        ui_sources = _build_ui_sources(seed_chunks, limit=12)
+
+        # 2) 스토리 선정
         top_story_ids = _pick_top_story_ids(seed_chunks, TOP_STORIES)
 
-        # 3) 선정된 스토리의 "전체 chunk"를 Milvus에서 재조회 (전수 포함)
+        # 3) 선정된 스토리 전체 chunk 재조회
         story_contexts: List[str] = []
-        story_sources: List[Dict[str, Any]] = []
 
         for sid in top_story_ids:
             all_chunks = await _fetch_all_chunks_for_story(sid)
-            story_ctx, story_src = _build_outline_context_for_story(request.query, all_chunks)
+            story_ctx, _story_src = _build_outline_context_for_story(request.query, all_chunks)
             if story_ctx:
                 story_contexts.append(story_ctx)
-                story_sources.append(story_src)
 
-        # 4) sources 이벤트 (UI용: 선정된 스토리 단위로 내려줌)
-        yield f"event: sources\ndata: {json.dumps(story_sources, ensure_ascii=False)}\n\n"
+        # 4) sources 이벤트는 resource card 목록으로 보냄
+        yield f"event: sources\ndata: {json.dumps(ui_sources, ensure_ascii=False)}\n\n"
 
-        # 5) LLM context 구성 (서브스토리 전수 포함 요약 강제)
+        # 5) 통합 요약 생성
         context = _wrap_context_for_llm(request.query, story_contexts)
 
+        stop_markers = [
+            "📚",
+            "참고 자료",
+            "관련 컬렉션",
+            "관련 자원",
+            "추천 키워드",
+            "링크:",
+        ]
+
+        acc = ""
+        sent_len = 0
+
         async for token in stream_llm(query=request.query, context=context):
-            yield f"event: token\ndata: {json.dumps({'token': token}, ensure_ascii=False)}\n\n"
+            acc += token
+
+            cut_positions = [acc.find(m) for m in stop_markers if acc.find(m) != -1]
+            if cut_positions:
+                cut_idx = min(cut_positions)
+                safe_text = acc[:cut_idx]
+
+                if len(safe_text) > sent_len:
+                    remain = safe_text[sent_len:]
+                    yield f"event: token\ndata: {json.dumps({'token': remain}, ensure_ascii=False)}\n\n"
+                break
+
+            if len(acc) > sent_len:
+                remain = acc[sent_len:]
+                sent_len = len(acc)
+                yield f"event: token\ndata: {json.dumps({'token': remain}, ensure_ascii=False)}\n\n"
 
         yield f"event: done\ndata: {json.dumps({'status': 'ok'})}\n\n"
 
