@@ -45,7 +45,10 @@ export const useKorMemAPI = () => {
   ) => {
     const res = await fetch(`${apiBase.value}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
       body: JSON.stringify({
         query,
         badge_filter: badgeFilter || null,
@@ -69,8 +72,8 @@ export const useKorMemAPI = () => {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      buffer = buffer.replace(/\r\n/g, "\n");
 
-      // SSE 이벤트 파싱 (event: xxx\ndata: xxx\n\n)
       const events = buffer.split("\n\n");
       buffer = events.pop() ?? "";
 
@@ -85,26 +88,30 @@ export const useKorMemAPI = () => {
           if (line.startsWith("event: ")) {
             eventType = line.slice(7).trim();
           } else if (line.startsWith("data: ")) {
-            dataStr = line.slice(6).trim();
+            dataStr += line.slice(6);
           }
         }
 
         if (!dataStr) continue;
+
         try {
           const payload = JSON.parse(dataStr);
-          if (eventType === "sources") callbacks.onSources(payload);
-          else if (eventType === "token")
+
+          if (eventType === "sources") {
+            callbacks.onSources(Array.isArray(payload) ? payload : []);
+          } else if (eventType === "token") {
             callbacks.onToken(payload.token ?? "");
-          else if (eventType === "done") callbacks.onDone();
-          else if (eventType === "error")
+          } else if (eventType === "done") {
+            callbacks.onDone();
+          } else if (eventType === "error") {
             callbacks.onError(payload.error ?? "Unknown error");
-        } catch {
-          /* ignore bad JSON */
+          }
+        } catch (err) {
+          console.error("[SSE parse error]", err, raw);
         }
       }
     }
   };
-
   /**
    * 순수 벡터 검색 (LLM 없이)
    * GET /api/search?q=...&top_k=8&badge=포스트
