@@ -2112,7 +2112,7 @@ input.flatpickr_custom[readonly] {
 
   /* tab */
   .tab_hidden {
-    display: none;
+    display: none !important;
   }
   .tab_show {
     display: block;
