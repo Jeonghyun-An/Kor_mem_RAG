@@ -58,13 +58,16 @@ def _create_collection(name: str, dim: int):
         FieldSchema(name="text",         dtype=DataType.VARCHAR, max_length=4096),
         FieldSchema(name="title_main",   dtype=DataType.VARCHAR, max_length=512),
         FieldSchema(name="title_sub",    dtype=DataType.VARCHAR, max_length=512),
-        FieldSchema(name="badge",        dtype=DataType.VARCHAR, max_length=32),
-        FieldSchema(name="keywords",     dtype=DataType.VARCHAR, max_length=512),
+        FieldSchema(name="badge",        dtype=DataType.VARCHAR, max_length=64),
+        FieldSchema(name="keywords",     dtype=DataType.VARCHAR, max_length=2048),
         FieldSchema(name="provider",     dtype=DataType.VARCHAR, max_length=256),
         FieldSchema(name="detail_url",   dtype=DataType.VARCHAR, max_length=1024),
         FieldSchema(name="thumbnail",    dtype=DataType.VARCHAR, max_length=1024),
-        FieldSchema(name="date_registered", dtype=DataType.VARCHAR, max_length=32),
+        FieldSchema(name="date_registered", dtype=DataType.VARCHAR, max_length=64),
         FieldSchema(name="embedding",    dtype=DataType.FLOAT_VECTOR, dim=dim),
+        FieldSchema(name="date_modified", dtype=DataType.VARCHAR, max_length=64),
+        FieldSchema(name="related_stories", dtype=DataType.VARCHAR, max_length=8192),
+        FieldSchema(name="related_resources", dtype=DataType.VARCHAR, max_length=8192),
     ]
     schema = CollectionSchema(fields, description="Korean Memory RAG chunks")
     col = Collection(name, schema)

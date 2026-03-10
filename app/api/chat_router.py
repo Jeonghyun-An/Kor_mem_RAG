@@ -34,7 +34,7 @@ MAX_CONTEXT_CHARS_TOTAL = int(os.getenv("RAG_CONTEXT_CHARS_TOTAL", "22000"))    
 
 class ChatRequest(BaseModel):
     query: str
-    top_k: int = 8
+    top_k: int = 3
     badge_filter: Optional[str] = None
     stream: bool = True
 
@@ -113,7 +113,8 @@ async def _fetch_all_chunks_for_story(item_id: str) -> List[Dict[str, Any]]:
             "chunk_id", "item_id", "text",
             "title_main", "title_sub", "badge",
             "keywords", "provider", "detail_url",
-            "thumbnail", "date_registered",
+            "thumbnail", "date_registered", "date_modified",
+            "related_stories", "related_resources",
         ],
         limit=5000,  # 스토리당 충분히 크게
     )
@@ -222,6 +223,9 @@ def _build_outline_context_for_story(
         "provider": provider,
         "detail_url": detail_url,
         "thumbnail": thumbnail,
+        "substory_count": len(ordered_subs),
+        "related_stories": meta.get("related_stories", []),    # 추가
+        "related_resources": meta.get("related_resources", []), # 추가
         "substory_count": len(ordered_subs),
     }
     return story_context, story_source

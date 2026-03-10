@@ -29,6 +29,54 @@ def _safe_entity_get(ent, key: str, default=None):
         return default
 
 
+def _parse_json_list(value) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        v = value.strip()
+        if not v:
+            return []
+        try:
+            parsed = json.loads(v)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
+
+def _fallback_keywords(title_main: str, title_sub: str) -> list[str]:
+    out: list[str] = []
+
+    sub = (title_sub or "").strip()
+    main = (title_main or "").strip()
+
+    if sub:
+        # [총론] 같은 prefix 제거한 fallback도 같이 고려
+        cleaned = sub
+        if cleaned.startswith("[") and "]" in cleaned:
+            cleaned = cleaned.split("]", 1)[-1].strip()
+        if cleaned:
+            out.append(cleaned)
+        out.append(sub)
+
+    if main:
+        out.append(main)
+
+    # 중복 제거
+    uniq = []
+    seen = set()
+    for x in out:
+        key = x.strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        uniq.append(key)
+
+    return uniq[:5]
+
+
 async def retrieve_chunks(
     query: str,
     top_k: int = 8,
@@ -49,7 +97,8 @@ async def retrieve_chunks(
             "chunk_id", "item_id", "text",
             "title_main", "title_sub", "badge",
             "keywords", "provider", "detail_url",
-            "thumbnail", "date_registered",
+            "thumbnail", "date_registered", "date_modified",
+            "related_stories", "related_resources",
         ],
     )
 
@@ -58,29 +107,31 @@ async def retrieve_chunks(
     for hit in results[0]:
         ent = hit.entity
 
-        kw_raw = _safe_entity_get(ent, "keywords", "[]")
-        if isinstance(kw_raw, str):
-            try:
-                keywords = json.loads(kw_raw)
-            except Exception:
-                keywords = []
-        elif isinstance(kw_raw, list):
-            keywords = kw_raw
-        else:
-            keywords = []
+        title_main = _safe_entity_get(ent, "title_main", "")
+        title_sub = _safe_entity_get(ent, "title_sub", "")
+
+        keywords = _parse_json_list(_safe_entity_get(ent, "keywords", "[]"))
+        related_stories = _parse_json_list(_safe_entity_get(ent, "related_stories", "[]"))
+        related_resources = _parse_json_list(_safe_entity_get(ent, "related_resources", "[]"))
+
+        if not keywords:
+            keywords = _fallback_keywords(title_main, title_sub)
 
         hits.append({
             "chunk_id": _safe_entity_get(ent, "chunk_id", ""),
             "item_id": _safe_entity_get(ent, "item_id", ""),
             "text": _safe_entity_get(ent, "text", ""),
-            "title_main": _safe_entity_get(ent, "title_main", ""),
-            "title_sub": _safe_entity_get(ent, "title_sub", ""),
+            "title_main": title_main,
+            "title_sub": title_sub,
             "badge": _safe_entity_get(ent, "badge", ""),
             "keywords": keywords,
             "provider": _safe_entity_get(ent, "provider", ""),
             "detail_url": _safe_entity_get(ent, "detail_url", ""),
             "thumbnail": _safe_entity_get(ent, "thumbnail", ""),
             "date_registered": _safe_entity_get(ent, "date_registered", ""),
+            "date_modified": _safe_entity_get(ent, "date_modified", ""),
+            "related_stories": related_stories,
+            "related_resources": related_resources,
             "raw_score": float(hit.score),
         })
 
