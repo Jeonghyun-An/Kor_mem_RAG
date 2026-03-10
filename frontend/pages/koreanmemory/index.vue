@@ -547,7 +547,7 @@
                   <div class="sc_menu ty_03">
                     <a
                       v-for="resource in relatedResources"
-                      :key="resource.chunk_id"
+                      :key="resource.key"
                       :href="resource.detail_url || '#'"
                       class="sc_menu_item"
                       target="_blank"
@@ -663,33 +663,33 @@ import { useSearchHistory } from "@/composables/useSearchHistory";
 
 definePageMeta({ layout: false });
 
-useHead({
-  title: "AI 코리안메모리",
-  link: [
-    { rel: "stylesheet", href: "/css/reset.css" },
-    { rel: "stylesheet", href: "/css/common.css" },
-    { rel: "stylesheet", href: "/css/layout.css" },
-  ],
-});
-
 type HistoryItem = {
   id: string | number;
   query: string;
 };
 
-type SourceItem = {
-  chunk_id: string;
+// SourceItem → StorySource로 교체
+type SubStory = {
+  title_sub: string;
+  detail_url?: string;
+  thumbnail?: string;
+  provider?: string;
+  badge?: string;
+};
+
+type StorySource = {
+  item_id: string;
   title_main: string;
-  title_sub?: string;
   badge?: string;
   keywords?: string[];
   provider?: string;
   detail_url?: string;
   thumbnail?: string;
-  score?: number;
-  text_preview?: string;
+  substory_count?: number;
+  substories?: SubStory[];
 };
 
+const sources = ref<StorySource[]>([]);
 const BADGES = ["포스트", "시리즈", "특집", "큐레이션", "전시", "아카이브"];
 const EXAMPLES = [
   "조선 후기, 민화만이 가진 독특한 구도 및 예술적 특징을 요약해 줘.",
@@ -718,7 +718,6 @@ const conditionOpen = ref(false);
 const displayLanguage = ref<"한국어" | "English">("한국어");
 
 const answerText = ref("");
-const sources = ref<SourceItem[]>([]);
 
 let abortController: AbortController | null = null;
 
@@ -737,39 +736,62 @@ const renderedAnswer = computed(() => {
   return marked.parse(raw) as string;
 });
 
+// 관련 키워드: 모든 스토리의 keywords 합산
 const relatedKeywords = computed(() => {
-  const flat = sources.value.flatMap((item) => item.keywords || []);
+  const flat = sources.value.flatMap((s) => s.keywords || []);
   return [...new Set(flat)].filter(Boolean).slice(0, 14);
 });
 
+// 관련 컬렉션: 스토리 단위 (title_main + detail_url)
 const relatedCollections = computed(() => {
-  const map = new Map<string, { title: string; link?: string }>();
-
-  for (const item of sources.value) {
-    const key = item.title_main?.trim();
-    if (!key || map.has(key)) continue;
-    map.set(key, {
-      title: key,
-      link: item.detail_url,
-    });
-  }
-
-  return [...map.values()].slice(0, 14);
+  return sources.value
+    .filter((s) => s.title_main)
+    .map((s) => ({ title: s.title_main, link: s.detail_url }))
+    .slice(0, 12);
 });
 
+// 관련 자원: substory 카드 단위로 펼치기
 const relatedResources = computed(() => {
-  const map = new Map<string, SourceItem>();
+  const out: Array<{
+    key: string;
+    title_main: string;
+    title_sub: string;
+    badge?: string;
+    detail_url?: string;
+    thumbnail?: string;
+    provider?: string;
+  }> = [];
 
-  for (const item of sources.value) {
-    const key =
-      item.chunk_id ||
-      `${item.title_main}-${item.title_sub}-${item.detail_url || ""}`;
-    if (!map.has(key)) map.set(key, item);
+  for (const story of sources.value) {
+    const subs = story.substories || [];
+    if (subs.length === 0) {
+      // substory 없으면 스토리 자체를 1개 카드로
+      out.push({
+        key: story.item_id,
+        title_main: story.title_main,
+        title_sub: "",
+        badge: story.badge,
+        detail_url: story.detail_url,
+        thumbnail: story.thumbnail,
+        provider: story.provider,
+      });
+    } else {
+      for (const sub of subs) {
+        out.push({
+          key: `${story.item_id}_${sub.title_sub}`,
+          title_main: story.title_main,
+          title_sub: sub.title_sub,
+          badge: sub.badge || story.badge,
+          detail_url: sub.detail_url || story.detail_url,
+          thumbnail: sub.thumbnail || story.thumbnail,
+          provider: sub.provider || story.provider,
+        });
+      }
+    }
   }
 
-  return [...map.values()].slice(0, 12);
+  return out.slice(0, 12);
 });
-
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
@@ -837,8 +859,10 @@ async function handleSearch() {
       q,
       selectedBadge.value,
       {
-        onSources: (payload: SourceItem[]) => {
+        onSources: (payload: any[]) => {
+          console.log("[onSources payload]", payload);
           sources.value = Array.isArray(payload) ? payload : [];
+          console.log("[sources.value]", sources.value);
           isSearching.value = false;
           isGenerating.value = true;
         },
@@ -868,6 +892,41 @@ async function handleSearch() {
 </script>
 
 <style scoped>
+.sc_menu.ty_03 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.sc_menu.ty_03 .sc_menu_item {
+  display: block;
+}
+
+.sc_menu.ty_03 .img_wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.sc_menu.ty_03 .img_wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sc_menu.ty_03 .txt_wrap {
+  margin-top: 8px;
+}
+
+.related_keyword_list,
+.sc_menu.ty_02,
+.sc_menu.ty_03 {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 .hd_logo_link {
   display: inline-flex;
   align-items: center;

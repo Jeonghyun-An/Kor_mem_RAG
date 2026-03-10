@@ -226,7 +226,16 @@ def _build_outline_context_for_story(
         "substory_count": len(ordered_subs),
         "related_stories": meta.get("related_stories", []),    # 추가
         "related_resources": meta.get("related_resources", []), # 추가
-        "substory_count": len(ordered_subs),
+        "substories": [
+        {
+            "title_sub": sub,
+            "detail_url": by_sub[sub][0].get("detail_url", "") if by_sub[sub] else detail_url,
+            "thumbnail": by_sub[sub][0].get("thumbnail", "") if by_sub[sub] else thumbnail,
+            "provider": by_sub[sub][0].get("provider", "") if by_sub[sub] else provider,
+            "badge": by_sub[sub][0].get("badge", "") if by_sub[sub] else badge,
+        }
+        for sub in ordered_subs
+    ],
     }
     return story_context, story_source
 
@@ -298,36 +307,27 @@ async def _sse_generator(request: ChatRequest):
             badge_filter=request.badge_filter,
         )
 
-        # UI용 관련 자원 카드
-        ui_sources = _build_ui_sources(seed_chunks, limit=12)
-
         # 2) 스토리 선정
         top_story_ids = _pick_top_story_ids(seed_chunks, TOP_STORIES)
 
         # 3) 선정된 스토리 전체 chunk 재조회
         story_contexts: List[str] = []
+        story_sources: List[Dict[str, Any]] = []          # ← 추가
 
         for sid in top_story_ids:
             all_chunks = await _fetch_all_chunks_for_story(sid)
-            story_ctx, _story_src = _build_outline_context_for_story(request.query, all_chunks)
+            story_ctx, story_src = _build_outline_context_for_story(request.query, all_chunks)  # ← _ 제거
             if story_ctx:
                 story_contexts.append(story_ctx)
+                story_sources.append(story_src)           # ← 수집
 
-        # 4) sources 이벤트는 resource card 목록으로 보냄
-        yield f"event: sources\ndata: {json.dumps(ui_sources, ensure_ascii=False)}\n\n"
+        # 4) sources 이벤트: substories 포함된 story_sources 전송  ← 핵심 변경
+        yield f"event: sources\ndata: {json.dumps(story_sources, ensure_ascii=False)}\n\n"
 
         # 5) 통합 요약 생성
         context = _wrap_context_for_llm(request.query, story_contexts)
 
-        stop_markers = [
-            "📚",
-            "참고 자료",
-            "관련 컬렉션",
-            "관련 자원",
-            "추천 키워드",
-            "링크:",
-        ]
-
+        stop_markers = ["📚", "참고 자료", "관련 컬렉션", "관련 자원", "추천 키워드", "링크:"]
         acc = ""
         sent_len = 0
 
@@ -338,7 +338,6 @@ async def _sse_generator(request: ChatRequest):
             if cut_positions:
                 cut_idx = min(cut_positions)
                 safe_text = acc[:cut_idx]
-
                 if len(safe_text) > sent_len:
                     remain = safe_text[sent_len:]
                     yield f"event: token\ndata: {json.dumps({'token': remain}, ensure_ascii=False)}\n\n"
@@ -353,7 +352,6 @@ async def _sse_generator(request: ChatRequest):
 
     except Exception as e:
         yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
