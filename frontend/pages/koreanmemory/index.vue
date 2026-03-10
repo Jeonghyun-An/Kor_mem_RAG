@@ -452,138 +452,154 @@
       </div>
 
       <div class="search_list_wrap">
-        <div class="search_q_item">
+        <!-- 생성 중 화면 -->
+        <div v-if="isSearching && !sources.length" class="search_q_item">
           <div class="search_q_tit">{{ currentQuery }}</div>
-
-          <!-- 생성 중 화면 -->
-          <div v-if="isSearching && !sources.length" class="loading_wrap">
+          <div class="loading_wrap">
             <div class="circle_wrap">
               <img src="/img/icon/ic_ing.gif" alt="" class="circle_img" />
             </div>
             <div class="loading_txt">답변 생성 중 입니다...</div>
           </div>
+        </div>
 
-          <!-- 결과 화면 -->
+        <!-- 결과 화면: 스토리별 반복 -->
+        <template v-else-if="!isSearching && (answerText || sources.length)">
           <div
-            v-else-if="!isSearching && (answerText || sources.length)"
-            class="list_answer_list"
+            v-for="(story, idx) in sources"
+            :key="story.item_id"
+            class="search_q_item"
+            :class="{ story_divider: idx > 0 }"
           >
-            <!-- [S] 질의 요약 -->
-            <div class="list_answer_item">
-              <div class="con_tit ty_02 mb_20i">
-                <img src="/img/icon/ic_summary.svg" alt="" class="ic" />
-                질의 요약
-              </div>
-              <div class="summary_txt" v-html="renderedAnswer"></div>
+            <!-- 첫 번째는 검색어, 이후는 스토리 제목 -->
+            <div class="search_q_tit">
+              {{ idx === 0 ? currentQuery : story.title_main }}
             </div>
-            <!-- [E] 질의 요약 -->
 
-            <!-- [S] 관련 키워드 -->
-            <div class="list_answer_item" v-if="relatedKeywords.length">
-              <div class="con_tit ty_02">
-                <img src="/img/icon/ic_related_keyword.svg" alt="" class="ic" />
-                관련 키워드
-              </div>
-              <ul class="related_keyword_list">
-                <li
-                  v-for="keyword in relatedKeywords"
-                  :key="keyword"
-                  class="related_keyword_item"
-                >
-                  <a
-                    href="#;"
-                    class="inn"
-                    @click.prevent="searchByKeyword(keyword)"
-                  >
-                    {{ keyword }}
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <!-- [E] 관련 키워드 -->
-
-            <!-- [S] 관련 컬렉션 -->
-            <div class="list_answer_item" v-if="relatedCollections.length">
-              <div class="con_tit ty_02">
-                <img
-                  src="/img/icon/ic_related_collection.svg"
-                  alt=""
-                  class="ic"
-                />
-                관련 컬렉션
-              </div>
-              <div class="sc_menu_wrap bar_no">
-                <div class="sc_menu ty_02">
-                  <a
-                    v-for="collection in relatedCollections"
-                    :key="collection.title"
-                    :href="collection.link || '#'"
-                    class="sc_menu_item"
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <span class="txt_underline">
-                      <span class="inn_txt">{{ collection.title }}</span>
-                    </span>
-                  </a>
+            <div class="list_answer_list">
+              <!-- [S] 질의 요약 -->
+              <div class="list_answer_item">
+                <div class="con_tit ty_02 mb_20i">
+                  <img src="/img/icon/ic_summary.svg" alt="" class="ic" />
+                  질의 요약
                 </div>
+                <div
+                  class="summary_txt"
+                  v-html="markedParse(storyAnswers[idx] || '')"
+                ></div>
               </div>
-            </div>
-            <!-- [E] 관련 컬렉션 -->
+              <!-- [E] 질의 요약 -->
 
-            <!-- [S] 관련 자원 -->
-            <div class="list_answer_item" v-if="relatedResources.length">
-              <div class="con_tit ty_02 mb_20i">
-                <img
-                  src="/img/icon/ic_related_resource.svg"
-                  alt=""
-                  class="ic"
-                />
-                관련 자원
-              </div>
-
-              <div class="sc_tab_con_wrap">
-                <div class="sc_menu_wrap">
-                  <div class="sc_menu ty_03">
+              <!-- [S] 관련 키워드 -->
+              <div class="list_answer_item" v-if="story.keywords?.length">
+                <div class="con_tit ty_02">
+                  <img
+                    src="/img/icon/ic_related_keyword.svg"
+                    alt=""
+                    class="ic"
+                  />
+                  관련 키워드
+                </div>
+                <ul class="related_keyword_list">
+                  <li
+                    v-for="keyword in story.keywords"
+                    :key="keyword"
+                    class="related_keyword_item"
+                  >
                     <a
-                      v-for="resource in relatedResources"
-                      :key="resource.key"
-                      :href="resource.detail_url || '#'"
+                      href="#;"
+                      class="inn"
+                      @click.prevent="searchByKeyword(keyword)"
+                    >
+                      {{ keyword }}
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <!-- [E] 관련 키워드 -->
+
+              <!-- [S] 관련 컬렉션 -->
+              <div class="list_answer_item" v-if="story.title_main">
+                <div class="con_tit ty_02">
+                  <img
+                    src="/img/icon/ic_related_collection.svg"
+                    alt=""
+                    class="ic"
+                  />
+                  관련 컬렉션
+                </div>
+                <div class="sc_menu_wrap bar_no">
+                  <div class="sc_menu ty_02">
+                    <a
+                      :href="story.detail_url || '#'"
                       class="sc_menu_item"
                       target="_blank"
                       rel="noopener"
                     >
-                      <div class="img_wrap">
-                        <img
-                          v-if="resource.thumbnail"
-                          :src="resource.thumbnail"
-                          :alt="resource.title_main"
-                          @error="hideBrokenImage"
-                        />
-                      </div>
-
-                      <div class="txt_wrap">
-                        <span class="resource_type">
-                          {{ resource.badge || "텍스트" }}
-                        </span>
-                        <div class="tit ellipsis line02">
-                          {{ resource.title_sub || resource.title_main }}
-                        </div>
-                        <div class="resource_meta">
-                          {{ resource.provider }}
-                        </div>
-                      </div>
+                      <span class="txt_underline">
+                        <span class="inn_txt">{{ story.title_main }}</span>
+                      </span>
                     </a>
                   </div>
                 </div>
               </div>
-            </div>
-            <!-- [E] 관련 자원 -->
-          </div>
+              <!-- [E] 관련 컬렉션 -->
 
-          <div v-else-if="!isSearching && hasSearched" class="empty_result">
-            관련 자료를 찾을 수 없습니다.
+              <!-- [S] 관련 자원 -->
+              <div class="list_answer_item" v-if="story.substories?.length">
+                <div class="con_tit ty_02 mb_20i">
+                  <img
+                    src="/img/icon/ic_related_resource.svg"
+                    alt=""
+                    class="ic"
+                  />
+                  관련 자원
+                </div>
+
+                <div class="sc_tab_con_wrap">
+                  <div class="sc_menu_wrap">
+                    <div class="sc_menu ty_03">
+                      <a
+                        v-for="sub in story.substories.slice(0, 12)"
+                        :key="`${story.item_id}_${sub.title_sub}`"
+                        :href="sub.detail_url || story.detail_url || '#'"
+                        class="sc_menu_item"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <div class="img_wrap">
+                          <img
+                            v-if="sub.thumbnail || story.thumbnail"
+                            :src="sub.thumbnail || story.thumbnail"
+                            :alt="sub.title_sub"
+                            @error="hideBrokenImage"
+                          />
+                        </div>
+                        <div class="txt_wrap">
+                          <span class="resource_type">
+                            {{ sub.badge || story.badge || "텍스트" }}
+                          </span>
+                          <div class="tit ellipsis line02">
+                            {{ sub.title_sub || story.title_main }}
+                          </div>
+                          <div class="resource_meta">
+                            {{ sub.provider || story.provider }}
+                          </div>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- [E] 관련 자원 -->
+            </div>
           </div>
+        </template>
+
+        <!-- 빈 결과 -->
+        <div v-else-if="!isSearching && hasSearched" class="search_q_item">
+          <div class="search_q_tit">{{ currentQuery }}</div>
+          <div class="empty_result">관련 자료를 찾을 수 없습니다.</div>
         </div>
       </div>
 
@@ -668,7 +684,6 @@ type HistoryItem = {
   query: string;
 };
 
-// SourceItem → StorySource로 교체
 type SubStory = {
   title_sub: string;
   detail_url?: string;
@@ -725,73 +740,33 @@ const { chatStream } = useKorMemAPI();
 const { history, groupedHistory, addHistory, deleteHistory } =
   useSearchHistory();
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+marked.setOptions({ breaks: true, gfm: true });
 
-const renderedAnswer = computed(() => {
+// template에서 직접 호출 가능하도록 노출
+function markedParse(text: string): string {
+  if (!text?.trim()) return "";
+  return marked.parse(text) as string;
+}
+
+// LLM 출력을 ## 헤더(스토리 제목) 기준으로 분리해서 각 스토리에 매핑
+const storyAnswers = computed((): string[] => {
   const raw = answerText.value?.trim();
-  if (!raw) return "";
-  return marked.parse(raw) as string;
+  if (!raw || !sources.value.length) return sources.value.map(() => "");
+
+  // "## " 기준으로 블록 분리
+  const blocks = raw.split(/(?=^## )/m).filter((b) => b.trim());
+
+  return sources.value.map((story, i) => {
+    // title_main이 포함된 블록 우선 매핑
+    const matched = blocks.find((b) =>
+      b.toLowerCase().includes(story.title_main.toLowerCase()),
+    );
+    if (matched) return matched.trim();
+    // 못 찾으면 순서대로
+    return (blocks[i] || "").trim();
+  });
 });
 
-// 관련 키워드: 모든 스토리의 keywords 합산
-const relatedKeywords = computed(() => {
-  const flat = sources.value.flatMap((s) => s.keywords || []);
-  return [...new Set(flat)].filter(Boolean).slice(0, 14);
-});
-
-// 관련 컬렉션: 스토리 단위 (title_main + detail_url)
-const relatedCollections = computed(() => {
-  return sources.value
-    .filter((s) => s.title_main)
-    .map((s) => ({ title: s.title_main, link: s.detail_url }))
-    .slice(0, 12);
-});
-
-// 관련 자원: substory 카드 단위로 펼치기
-const relatedResources = computed(() => {
-  const out: Array<{
-    key: string;
-    title_main: string;
-    title_sub: string;
-    badge?: string;
-    detail_url?: string;
-    thumbnail?: string;
-    provider?: string;
-  }> = [];
-
-  for (const story of sources.value) {
-    const subs = story.substories || [];
-    if (subs.length === 0) {
-      // substory 없으면 스토리 자체를 1개 카드로
-      out.push({
-        key: story.item_id,
-        title_main: story.title_main,
-        title_sub: "",
-        badge: story.badge,
-        detail_url: story.detail_url,
-        thumbnail: story.thumbnail,
-        provider: story.provider,
-      });
-    } else {
-      for (const sub of subs) {
-        out.push({
-          key: `${story.item_id}_${sub.title_sub}`,
-          title_main: story.title_main,
-          title_sub: sub.title_sub,
-          badge: sub.badge || story.badge,
-          detail_url: sub.detail_url || story.detail_url,
-          thumbnail: sub.thumbnail || story.thumbnail,
-          provider: sub.provider || story.provider,
-        });
-      }
-    }
-  }
-
-  return out.slice(0, 12);
-});
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value;
 }
@@ -860,11 +835,9 @@ async function handleSearch() {
       selectedBadge.value,
       {
         onSources: (payload: any[]) => {
-          console.log("[onSources payload]", payload);
           sources.value = Array.isArray(payload) ? payload : [];
-          console.log("[sources.value]", sources.value);
           isSearching.value = false;
-          isGenerating.value = true;
+          isGenerating.value = sources.value.length > 0;
         },
         onToken: (token: string) => {
           answerText.value += token;
@@ -882,9 +855,7 @@ async function handleSearch() {
       abortController.signal,
     );
   } catch (error: any) {
-    if (error?.name !== "AbortError") {
-      console.error(error);
-    }
+    if (error?.name !== "AbortError") console.error(error);
     isSearching.value = false;
     isGenerating.value = false;
   }
@@ -892,6 +863,13 @@ async function handleSearch() {
 </script>
 
 <style scoped>
+/* 스토리 구분선 */
+.story_divider {
+  border-top: 2px solid #e8e0d0;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
 .sc_menu.ty_03 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -927,6 +905,7 @@ async function handleSearch() {
   opacity: 1 !important;
   visibility: visible !important;
 }
+
 .hd_logo_link {
   display: inline-flex;
   align-items: center;
@@ -984,12 +963,6 @@ async function handleSearch() {
   margin: 18px 0 10px;
   font-weight: 700;
   line-height: 1.5;
-}
-
-.sc_menu.ty_03 .img_wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .search_main_wrap .search_main {
