@@ -157,6 +157,8 @@ def _make_chunks(item: Dict[str, Any]) -> List[Dict[str, Any]]:
         title_sub = page.get("title_sub", "")
         detail_url = page.get("detail_url", "")
         detail = page.get("detail", {}) or {}
+        body_images = detail.get("body_images", [])
+        sub_thumbnail = body_images[0]["src"] if body_images else item.get("thumbnail", "")
 
         provider = detail.get("provider", "")
         date_registered = detail.get("date_registered", "")
@@ -208,7 +210,7 @@ def _make_chunks(item: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "keywords": keywords_json,
                 "provider": _fit_varchar(str(provider), MAX_LEN_PROVIDER),
                 "detail_url": _fit_varchar(str(detail_url), MAX_LEN_DETAIL_URL),
-                "thumbnail": _fit_varchar(str(thumbnail), MAX_LEN_THUMBNAIL),
+                "thumbnail": _fit_varchar(str(sub_thumbnail), MAX_LEN_THUMBNAIL),  # thumbnail → sub_thumbnail
                 "date_registered": _fit_varchar(str(date_registered), MAX_LEN_DATE),
                 "date_modified": _fit_varchar(str(date_modified), MAX_LEN_DATE),
                 "related_stories": related_stories_json,
