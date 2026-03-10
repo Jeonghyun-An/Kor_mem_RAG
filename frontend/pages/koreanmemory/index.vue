@@ -1,35 +1,43 @@
 <template>
-  <!-- skip nav -->
+  <!-- [S] skip menu -->
   <ul class="skip_menu">
     <li><a href="#contents_wrap">검색 바로가기</a></li>
   </ul>
+  <!-- [E] skip menu -->
 
+  <!-- [S] contents_wrap -->
   <div class="contents_wrap" id="contents_wrap">
-    <!-- ======================================================
-         [S] left_menu_wrap  –  Library_AI_land와 동일한 구조
-         ====================================================== -->
-    <div class="left_menu_wrap" :class="{ open: hasSearched }">
-      <!-- 헤더: 로고 + 토글 -->
+    <!-- [S] left_menu_wrap -->
+    <div class="left_menu_wrap" :class="{ open: sidebarOpen || hasSearched }">
       <div class="left_menu_hd">
-        <a href="#;" class="hd_logo view_ctr" @click.prevent="resetHome">
-          <img src="/img/layout/km_logo.png" alt="코리안메모리 AI 검색" />
+        <a href="#;" class="hd_logo_link" @click.prevent="resetHome">
+          <img
+            src="/img/layout/hd_logo.svg"
+            alt="기억의 도서관 코리안메모리 AI에이전트"
+            class="hd_logo view_ctr"
+          />
         </a>
-        <button
+        <a
+          href="#;"
           class="left_menu_trigger"
-          aria-label="메뉴 열기/닫기"
-          @click="toggleSidebar"
-        ></button>
+          :aria-label="sidebarOpen ? '메뉴 닫기' : '메뉴 열기'"
+          @click.prevent="toggleSidebar"
+        ></a>
       </div>
 
-      <!-- 히스토리 (사이드바 열림 시) -->
       <div class="left_menu_con_wrap view_ctr">
         <div class="left_menu_con">
           <div class="tab_con_wrap">
-            <div class="tab_con on">
-              <div class="con_tit ty_01 mt_20">검색 히스토리</div>
-              <div class="history_con_wrap history_con_wrap--scrollable mt_10">
-                <template v-if="history.length > 0">
-                  <div v-for="(items, date) in groupedHistory" :key="date">
+            <div class="tab_history tab_con on">
+              <div class="con_tit ty_01 mt_20i">히스토리</div>
+
+              <div class="history_con_wrap history_con_wrap_scroll">
+                <template v-if="history.length">
+                  <div
+                    v-for="(items, date) in groupedHistory"
+                    :key="date"
+                    class="history_con"
+                  >
                     <div class="history_con_date">{{ date }}</div>
                     <ul class="history_con_list">
                       <li
@@ -55,123 +63,272 @@
                     </ul>
                   </div>
                 </template>
+
                 <template v-else>
-                  <p
-                    class="txt_gray"
-                    style="font-size: 0.65rem; margin-top: 0.5rem"
-                  >
-                    검색 기록이 없습니다.
-                  </p>
+                  <div class="history_empty">검색 기록이 없습니다.</div>
                 </template>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 사이드바 하단 -->
-      <div class="left_menu_btm_info view_ctr">
-        <div class="left_menu_btm_txt">
-          AI가 생성한 콘텐츠입니다. 정확성을 확인해 주세요.
-        </div>
-        <div class="info_wrap ty_01">
-          <a
-            href="https://nl.go.kr/koreanmemory/"
-            target="_blank"
-            class="info_item ty_01"
-          >
-            코리안메모리 바로가기
-          </a>
+          <div class="left_menu_btm_info">
+            <div class="left_menu_btm_txt">
+              AI가 생성한 콘텐츠입니다.
+              <br class="tab_show" />
+              품질이 달라질 수 있으니 정확성을 확인해 주세요.
+            </div>
+
+            <div class="info_wrap ty_01">
+              <span class="info">
+                <a
+                  href="https://nl.go.kr/koreanmemory/"
+                  target="_blank"
+                  rel="noopener"
+                  class="info_item ty_01"
+                >
+                  <img src="/img/icon/ic_q.svg" alt="" />
+                  코리안메모리 바로가기
+                </a>
+              </span>
+              <span class="info">
+                <a href="#;" class="info_item ty_01" @click.prevent>
+                  <img src="/img/icon/ic_privacy.svg" alt="" />
+                  개인정보 보호 방침 및 면책 조항
+                </a>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
     <!-- [E] left_menu_wrap -->
 
-    <!-- ======================================================
-         상태 1: 검색 전 (search_main_wrap)
-         Library_AI_land의 search_main_wrap 구조와 동일
-         ====================================================== -->
+    <!-- [S] search_wrap : 메인 -->
     <div v-if="!hasSearched" class="search_wrap search_main_wrap">
-      <!-- 헤더 -->
       <div class="search_wrap_hd">
         <div class="area">
           <img
-            src="/img/layout/km_logo.png"
-            alt="코리안메모리 AI 검색"
-            class="hd_logo"
+            src="/img/layout/hd_logo.svg"
+            alt="기억의 도서관 코리안메모리 AI에이전트"
+            class="hd_logo tab_hidden"
           />
+        </div>
+
+        <div
+          class="member_util_wrap trigger_wrap"
+          :class="{ on: memberMenuOpen }"
+          id="member_util_trigger_wrap"
+        >
+          <a
+            href="#;"
+            class="trigger member_util_trigger"
+            id="member_util_trigger"
+            @click.prevent="memberMenuOpen = !memberMenuOpen"
+          >
+            <img src="/img/icon/ic_member.svg" alt="" />
+            {{ memberName }}
+          </a>
+
+          <div
+            v-show="memberMenuOpen"
+            class="trigger_toggle member_util_trigger_toggle"
+            id="member_util_trigger_toggle"
+          >
+            <div class="member_wrap">
+              <div class="member_info">
+                <div class="member_name">{{ memberName }}</div>
+                <div class="member_email">{{ memberEmail }}</div>
+              </div>
+              <a href="#;" class="logout btn sz_md" @click.prevent>
+                <img src="/img/icon/ic_logout.svg" alt="" />
+                로그아웃
+              </a>
+            </div>
+
+            <ul class="member_util_list">
+              <li class="member_util_item">
+                <a href="#;" class="util_item_inn" @click.prevent>
+                  <span class="ic ic_bookmark"></span>
+                  <span class="txt">내 즐겨찾기</span>
+                </a>
+              </li>
+              <li class="member_util_item">
+                <a href="#;" class="util_item_inn" @click.prevent>
+                  <span class="ic ic_history"></span>
+                  <span class="txt">내 검색기록</span>
+                </a>
+              </li>
+              <li
+                class="member_util_item lang_trigger_wrap trigger_wrap"
+                :class="{ on: langMenuOpen }"
+              >
+                <a
+                  href="#;"
+                  class="util_item_inn trigger"
+                  id="lang_trigger"
+                  @click.prevent="langMenuOpen = !langMenuOpen"
+                >
+                  <span class="ic ic_lang"></span>
+                  <span class="txt">
+                    표시언어:
+                    <span class="fw_b lang">{{ displayLanguage }}</span>
+                  </span>
+                </a>
+
+                <div
+                  v-show="langMenuOpen"
+                  class="trigger_toggle lang_trigger_toggle"
+                  id="lang_trigger_toggle"
+                >
+                  <div class="lang_trigger_toggle_hd">
+                    <img src="/img/icon/ic_lang_b.svg" alt="" />
+                    표시언어
+                  </div>
+                  <ul class="lang_list">
+                    <li
+                      class="lang_item"
+                      :class="{ on: displayLanguage === 'English' }"
+                    >
+                      <a
+                        href="#;"
+                        class="inn"
+                        @click.prevent="setLanguage('English')"
+                      >
+                        English
+                      </a>
+                    </li>
+                    <li
+                      class="lang_item"
+                      :class="{ on: displayLanguage === '한국어' }"
+                    >
+                      <a
+                        href="#;"
+                        class="inn"
+                        @click.prevent="setLanguage('한국어')"
+                      >
+                        한국어
+                      </a>
+                    </li>
+                  </ul>
+                  <a
+                    href="#;"
+                    class="btn bg_black sz_md trigger_close"
+                    @click.prevent="langMenuOpen = false"
+                  >
+                    취소
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      <!-- 메인 검색 -->
       <div class="search_main">
         <div class="inner">
           <img
-            src="/img/layout/km_logo_main.png"
-            alt="코리안메모리 AI 도서정보 검색"
-            style="max-width: 24rem; margin: 0 auto 1rem"
+            src="/img/main/txt_search_main.svg"
+            alt="기억의 도서관 코리안메모리 AI 에이전트"
+            class="tab_hidden"
           />
+          <img
+            src="/img/main/txt_search_main_mo.svg"
+            alt="기억의 도서관 코리안메모리 AI 에이전트"
+            class="tab_show_ib"
+          />
+
           <div class="main_txt">
-            국립중앙도서관 코리안메모리 컬렉션을 AI로 탐색하세요.
+            자원을 디지털화하고 큐레이션을 분석해주는 코리안메모리의 생성형
+            인공지능 서비스입니다.
           </div>
 
-          <!-- 배지 필터 -->
-          <div class="badge_filter_wrap" style="justify-content: center">
-            <button
-              class="badge_filter_btn"
-              :class="{ on: !selectedBadge }"
-              @click="selectedBadge = null"
+          <div class="search_box">
+            <div
+              class="trigger_wrap search_condition_trigger_wrap"
+              :class="{ on: conditionOpen }"
+              id="search_condition_trigger_wrap"
             >
-              전체
-            </button>
-            <button
-              v-for="b in BADGES"
-              :key="b"
-              class="badge_filter_btn"
-              :class="{ on: selectedBadge === b }"
-              @click="selectedBadge = b"
-            >
-              {{ b }}
-            </button>
-          </div>
+              <a
+                href="#;"
+                aria-label="검색 조건 설정"
+                class="trigger search_condition_trigger"
+                id="search_condition_trigger"
+                @click.prevent="conditionOpen = !conditionOpen"
+              ></a>
 
-          <!-- 검색 박스 -->
-          <div class="search_box mt_20">
+              <div
+                v-show="conditionOpen"
+                class="trigger_toggle search_condition_trigger_toggle"
+                id="search_condition_trigger_toggle"
+              >
+                <div class="search_condition_wrap">
+                  <div class="select_box">
+                    <select v-model="selectedBadge">
+                      <option :value="null">모든 양식</option>
+                      <option
+                        v-for="badge in BADGES"
+                        :key="badge"
+                        :value="badge"
+                      >
+                        {{ badge }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="select_box">
+                    <select v-model="dateFilter">
+                      <option value="">모든 날짜</option>
+                      <option value="latest">최신순</option>
+                    </select>
+                  </div>
+
+                  <div class="form_check ty_01">
+                    <input id="online" v-model="onlineOnly" type="checkbox" />
+                    <label for="online">온라인 이용가능</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <input
               v-model="searchQuery"
-              @keyup.enter="handleSearch"
               type="text"
+              title="검색어 입력"
+              placeholder="질문을 입력해주세요."
               class="search_box_input"
-              placeholder="찾고 싶은 주제나 질문을 입력하세요."
+              @keyup.enter="handleSearch"
             />
             <button
               class="search_box_btn"
               aria-label="검색"
+              :disabled="isSearching || isGenerating"
               @click="handleSearch"
-              :disabled="isSearching"
             ></button>
           </div>
 
-          <!-- 질문 예시 -->
           <div class="question_example">
             <div class="question_example_hd">
               <div class="con_tit ty_01">질문 예시</div>
+              <a href="#;" class="info_item ty_01" @click.prevent>
+                <img src="/img/icon/ic_q.svg" alt="" />
+                Ai 어시스턴트 소개
+              </a>
             </div>
+
             <ul class="question_example_list">
               <li
-                v-for="ex in EXAMPLES"
-                :key="ex"
+                v-for="example in EXAMPLES"
+                :key="example"
                 class="question_example_item"
               >
                 <a
                   href="#;"
                   class="inn"
-                  @click.prevent="
-                    searchQuery = ex;
-                    handleSearch();
-                  "
+                  @click.prevent="searchFromExample(example)"
                 >
-                  <div class="item ellipsis line02">{{ ex }}</div>
+                  <div class="item ellipsis line02">
+                    {{ example }}
+                  </div>
                   <div class="arr"></div>
                 </a>
               </li>
@@ -180,245 +337,498 @@
         </div>
       </div>
     </div>
-    <!-- [E] search_main_wrap -->
+    <!-- [E] search_wrap : 메인 -->
 
-    <!-- ======================================================
-         상태 2/3: 검색 중 + 결과 (search_result_wrap)
-         Library_AI_land의 search_result_wrap 구조와 동일
-         ====================================================== -->
+    <!-- [S] search_wrap : 결과/생성중 -->
     <div v-else class="search_wrap search_result_wrap open">
-      <!-- 헤더 -->
       <div class="search_wrap_hd">
         <div class="area"></div>
-      </div>
 
-      <!-- 스크롤 영역 -->
-      <div class="search_list_wrap">
-        <div class="search_q_item fade_in">
-          <!-- 현재 검색어 -->
-          <div class="search_q_tit">{{ currentQuery }}</div>
+        <div
+          class="member_util_wrap trigger_wrap"
+          :class="{ on: memberMenuOpen }"
+          id="member_util_trigger_wrap_result"
+        >
+          <a
+            href="#;"
+            class="trigger member_util_trigger"
+            id="member_util_trigger_result"
+            @click.prevent="memberMenuOpen = !memberMenuOpen"
+          >
+            <img src="/img/icon/ic_member.svg" alt="" />
+            {{ memberName }}
+          </a>
 
-          <!-- 배지 필터 탭 -->
-          <div class="badge_filter_wrap">
-            <button
-              class="badge_filter_btn"
-              :class="{ on: !selectedBadge }"
-              @click="selectedBadge = null"
-            >
-              전체
-            </button>
-            <button
-              v-for="b in BADGES"
-              :key="b"
-              class="badge_filter_btn"
-              :class="{ on: selectedBadge === b }"
-              @click="selectedBadge = b"
-            >
-              {{ b }}
-            </button>
-          </div>
-
-          <!-- 로딩 -->
-          <div v-if="isSearching" class="loading_wrap">
-            <div class="spinner"></div>
-            <div class="loading_txt">관련 자료를 검색하는 중입니다...</div>
-          </div>
-
-          <!-- 소스 카드 -->
-          <template v-if="sources.length > 0">
-            <div class="source_cards_wrap">
-              <a
-                v-for="card in sources"
-                :key="card.chunk_id"
-                :href="card.detail_url || '#'"
-                target="_blank"
-                rel="noopener"
-                class="source_card"
-              >
-                <div class="card_thumb">
-                  <img
-                    v-if="card.thumbnail"
-                    :src="card.thumbnail"
-                    :alt="card.title_main"
-                    @error="
-                      ($event.target as HTMLImageElement).style.display = 'none'
-                    "
-                  />
-                </div>
-                <div class="card_body">
-                  <div class="card_badge">
-                    <span :class="`badge ty_${badgeClass(card.badge)}`">{{
-                      card.badge
-                    }}</span>
-                  </div>
-                  <div class="card_title">{{ card.title_main }}</div>
-                  <div v-if="card.title_sub" class="card_sub">
-                    {{ card.title_sub }}
-                  </div>
-                  <div v-if="card.keywords.length" class="card_keywords">
-                    <span
-                      v-for="kw in card.keywords.slice(0, 4)"
-                      :key="kw"
-                      class="card_keyword"
-                      >#{{ kw }}</span
-                    >
-                  </div>
-                  <div class="card_meta">
-                    <span>{{ card.provider }}</span>
-                    <span class="card_score"
-                      >{{ (card.score * 100).toFixed(0) }}% 관련</span
-                    >
-                  </div>
-                </div>
+          <div
+            v-show="memberMenuOpen"
+            class="trigger_toggle member_util_trigger_toggle"
+          >
+            <div class="member_wrap">
+              <div class="member_info">
+                <div class="member_name">{{ memberName }}</div>
+                <div class="member_email">{{ memberEmail }}</div>
+              </div>
+              <a href="#;" class="logout btn sz_md" @click.prevent>
+                <img src="/img/icon/ic_logout.svg" alt="" />
+                로그아웃
               </a>
             </div>
-          </template>
 
-          <!-- 소스 없음 -->
-          <div
-            v-if="!isSearching && hasSearched && sources.length === 0"
-            style="
-              padding: 2rem;
-              text-align: center;
-              color: var(--gray60);
-              font-size: 0.75rem;
-            "
-          >
-            관련 자료를 찾을 수 없습니다. 다른 검색어를 시도해 보세요.
-          </div>
-
-          <!-- AI 답변 -->
-          <div v-if="answerText || isGenerating" class="answer_wrap fade_in">
-            <div class="answer_hd">
-              <div class="ai_icon">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="white"
-                  xmlns="http://www.w3.org/2000/svg"
+            <ul class="member_util_list">
+              <li class="member_util_item">
+                <a href="#;" class="util_item_inn" @click.prevent>
+                  <span class="ic ic_bookmark"></span>
+                  <span class="txt">내 즐겨찾기</span>
+                </a>
+              </li>
+              <li class="member_util_item">
+                <a href="#;" class="util_item_inn" @click.prevent>
+                  <span class="ic ic_history"></span>
+                  <span class="txt">내 검색기록</span>
+                </a>
+              </li>
+              <li
+                class="member_util_item lang_trigger_wrap trigger_wrap"
+                :class="{ on: langMenuOpen }"
+              >
+                <a
+                  href="#;"
+                  class="util_item_inn trigger"
+                  @click.prevent="langMenuOpen = !langMenuOpen"
                 >
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"
-                  />
-                </svg>
-              </div>
-              <div class="ai_label">AI 답변</div>
-            </div>
-            <div class="answer_body" v-html="renderedAnswer"></div>
-            <span v-if="isGenerating" class="answer_cursor"></span>
+                  <span class="ic ic_lang"></span>
+                  <span class="txt">
+                    표시언어:
+                    <span class="fw_b lang">{{ displayLanguage }}</span>
+                  </span>
+                </a>
+
+                <div
+                  v-show="langMenuOpen"
+                  class="trigger_toggle lang_trigger_toggle"
+                >
+                  <div class="lang_trigger_toggle_hd">
+                    <img src="/img/icon/ic_lang_b.svg" alt="" />
+                    표시언어
+                  </div>
+                  <ul class="lang_list">
+                    <li
+                      class="lang_item"
+                      :class="{ on: displayLanguage === 'English' }"
+                    >
+                      <a
+                        href="#;"
+                        class="inn"
+                        @click.prevent="setLanguage('English')"
+                      >
+                        English
+                      </a>
+                    </li>
+                    <li
+                      class="lang_item"
+                      :class="{ on: displayLanguage === '한국어' }"
+                    >
+                      <a
+                        href="#;"
+                        class="inn"
+                        @click.prevent="setLanguage('한국어')"
+                      >
+                        한국어
+                      </a>
+                    </li>
+                  </ul>
+                  <a
+                    href="#;"
+                    class="btn bg_black sz_md trigger_close"
+                    @click.prevent="langMenuOpen = false"
+                  >
+                    취소
+                  </a>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
 
-      <!-- 하단 고정 검색 박스 -->
+      <div class="search_list_wrap">
+        <div class="search_q_item">
+          <div class="search_q_tit">{{ currentQuery }}</div>
+
+          <!-- 생성 중 화면 -->
+          <div v-if="isSearching && !sources.length" class="loading_wrap">
+            <div class="circle_wrap">
+              <img src="/img/icon/ic_ing.gif" alt="" class="circle_img" />
+            </div>
+            <div class="loading_txt">답변 생성 중 입니다...</div>
+          </div>
+
+          <!-- 결과 화면 -->
+          <div
+            v-else-if="!isSearching && (answerText || sources.length)"
+            class="list_answer_list"
+          >
+            <!-- [S] 질의 요약 -->
+            <div class="list_answer_item">
+              <div class="con_tit ty_02 mb_20i">
+                <img src="/img/icon/ic_summary.svg" alt="" class="ic" />
+                질의 요약
+              </div>
+              <div class="summary_txt" v-html="renderedAnswer"></div>
+            </div>
+            <!-- [E] 질의 요약 -->
+
+            <!-- [S] 관련 키워드 -->
+            <div class="list_answer_item" v-if="relatedKeywords.length">
+              <div class="con_tit ty_02">
+                <img src="/img/icon/ic_related_keyword.svg" alt="" class="ic" />
+                관련 키워드
+              </div>
+              <ul class="related_keyword_list">
+                <li
+                  v-for="keyword in relatedKeywords"
+                  :key="keyword"
+                  class="related_keyword_item"
+                >
+                  <a
+                    href="#;"
+                    class="inn"
+                    @click.prevent="searchByKeyword(keyword)"
+                  >
+                    {{ keyword }}
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <!-- [E] 관련 키워드 -->
+
+            <!-- [S] 관련 컬렉션 -->
+            <div class="list_answer_item" v-if="relatedCollections.length">
+              <div class="con_tit ty_02">
+                <img
+                  src="/img/icon/ic_related_collection.svg"
+                  alt=""
+                  class="ic"
+                />
+                관련 컬렉션
+              </div>
+              <div class="sc_menu_wrap bar_no">
+                <div class="sc_menu ty_02">
+                  <a
+                    v-for="collection in relatedCollections"
+                    :key="collection.title"
+                    :href="collection.link || '#'"
+                    class="sc_menu_item"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <span class="txt_underline">
+                      <span class="inn_txt">{{ collection.title }}</span>
+                    </span>
+                  </a>
+                </div>
+              </div>
+            </div>
+            <!-- [E] 관련 컬렉션 -->
+
+            <!-- [S] 관련 자원 -->
+            <div class="list_answer_item" v-if="relatedResources.length">
+              <div class="con_tit ty_02 mb_20i">
+                <img
+                  src="/img/icon/ic_related_resource.svg"
+                  alt=""
+                  class="ic"
+                />
+                관련 자원
+              </div>
+
+              <div class="sc_tab_con_wrap">
+                <div class="sc_menu_wrap">
+                  <div class="sc_menu ty_03">
+                    <a
+                      v-for="resource in relatedResources"
+                      :key="resource.chunk_id"
+                      :href="resource.detail_url || '#'"
+                      class="sc_menu_item"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <div class="img_wrap">
+                        <img
+                          v-if="resource.thumbnail"
+                          :src="resource.thumbnail"
+                          :alt="resource.title_main"
+                          @error="hideBrokenImage"
+                        />
+                      </div>
+
+                      <div class="txt_wrap">
+                        <span class="resource_type">
+                          {{ resource.badge || "텍스트" }}
+                        </span>
+                        <div class="tit ellipsis line02">
+                          {{ resource.title_sub || resource.title_main }}
+                        </div>
+                        <div class="resource_meta">
+                          {{ resource.provider }}
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- [E] 관련 자원 -->
+          </div>
+
+          <div v-else-if="!isSearching && hasSearched" class="empty_result">
+            관련 자료를 찾을 수 없습니다.
+          </div>
+        </div>
+      </div>
+
       <div class="search_box_wrap">
         <div class="search_box">
+          <div
+            class="trigger_wrap search_condition_trigger_wrap"
+            :class="{ on: conditionOpen }"
+          >
+            <a
+              href="#;"
+              aria-label="검색 조건 설정"
+              class="trigger search_condition_trigger"
+              @click.prevent="conditionOpen = !conditionOpen"
+            ></a>
+
+            <div
+              v-show="conditionOpen"
+              class="trigger_toggle search_condition_trigger_toggle"
+            >
+              <div class="search_condition_wrap">
+                <div class="select_box">
+                  <select v-model="selectedBadge">
+                    <option :value="null">모든 양식</option>
+                    <option v-for="badge in BADGES" :key="badge" :value="badge">
+                      {{ badge }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="select_box">
+                  <select v-model="dateFilter">
+                    <option value="">모든 날짜</option>
+                    <option value="latest">최신순</option>
+                  </select>
+                </div>
+
+                <div class="form_check ty_01">
+                  <input
+                    id="online_result"
+                    v-model="onlineOnly"
+                    type="checkbox"
+                  />
+                  <label for="online_result">온라인 이용가능</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <input
             v-model="searchQuery"
-            @keyup.enter="handleSearch"
             type="text"
+            title="검색어 입력"
+            placeholder="질문을 입력해주세요."
             class="search_box_input"
-            placeholder="다른 질문을 입력하세요."
+            @keyup.enter="handleSearch"
           />
           <button
             class="search_box_btn"
             aria-label="검색"
-            @click="handleSearch"
             :disabled="isSearching || isGenerating"
+            @click="handleSearch"
           ></button>
         </div>
       </div>
     </div>
-    <!-- [E] search_result_wrap -->
+    <!-- [E] search_wrap : 결과/생성중 -->
   </div>
+  <!-- [E] contents_wrap -->
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from "vue";
 import { marked } from "marked";
 import { useKorMemAPI } from "@/composables/useKorMemAPI";
 import { useSearchHistory } from "@/composables/useSearchHistory";
-import { computed, ref } from "vue";
 
 definePageMeta({ layout: false });
-useHead({ title: "코리안메모리 AI 검색" });
 
-const { chatStream, getBadges } = useKorMemAPI();
-const { history, groupedHistory, addHistory, deleteHistory } =
-  useSearchHistory();
+useHead({
+  title: "AI 코리안메모리",
+  link: [
+    { rel: "stylesheet", href: "/css/reset.css" },
+    { rel: "stylesheet", href: "/css/common.css" },
+    { rel: "stylesheet", href: "/css/layout.css" },
+  ],
+});
 
-// ─── 상수 ───────────────────────────────────────────
+type HistoryItem = {
+  id: string | number;
+  query: string;
+};
+
+type SourceItem = {
+  chunk_id: string;
+  title_main: string;
+  title_sub?: string;
+  badge?: string;
+  keywords?: string[];
+  provider?: string;
+  detail_url?: string;
+  thumbnail?: string;
+  score?: number;
+  text_preview?: string;
+};
+
 const BADGES = ["포스트", "시리즈", "특집", "큐레이션", "전시", "아카이브"];
 const EXAMPLES = [
-  "한국 근현대 문학 작가와 그 대표 작품은?",
-  "6.25 전쟁 당시의 피란민 생활을 담은 자료를 찾아줘.",
-  "한국 전통 공예 – 도자기와 자수의 역사를 알려줘.",
-  "독립운동 관련 희귀 기록물이나 사진 자료가 있나요?",
+  "조선 후기, 민화만이 가진 독특한 구도 및 예술적 특징을 요약해 줘.",
+  "'올해의 인물' 컬렉션 중, 이현세 거장의 작품세계 특징을 알려줘.",
+  "전통의 숨결 위에 미래를 짓는 문화 도시, 서울의 스토리 콘텐츠 구성을 알려줘.",
+  "한국 창작 뮤지컬의 여정의 관련 스토리와 컬렉션을 찾아줘.",
 ];
 
-// ─── 상태 ───────────────────────────────────────────
+const memberName = "최승환 님";
+const memberEmail = "test0505@ajou.ac.kr";
+
 const searchQuery = ref("");
 const currentQuery = ref("");
 const selectedBadge = ref<string | null>(null);
+const dateFilter = ref("");
+const onlineOnly = ref(false);
+
 const hasSearched = ref(false);
 const isSearching = ref(false);
 const isGenerating = ref(false);
-const sources = ref<any[]>([]);
+
+const sidebarOpen = ref(false);
+const memberMenuOpen = ref(false);
+const langMenuOpen = ref(false);
+const conditionOpen = ref(false);
+const displayLanguage = ref<"한국어" | "English">("한국어");
+
 const answerText = ref("");
+const sources = ref<SourceItem[]>([]);
 
 let abortController: AbortController | null = null;
 
-// ─── 사이드바 ────────────────────────────────────────
-const toggleSidebar = () => {
-  hasSearched.value = !hasSearched.value;
-};
+const { chatStream } = useKorMemAPI();
+const { history, groupedHistory, addHistory, deleteHistory } =
+  useSearchHistory();
 
-// ─── 마크다운 렌더링 ─────────────────────────────────
-const renderedAnswer = computed(() => marked.parse(answerText.value) as string);
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
-// ─── 배지 CSS 클래스 매핑 ────────────────────────────
-const BADGE_CLASS_MAP: Record<string, string> = {
-  포스트: "post",
-  시리즈: "series",
-  특집: "special",
-  큐레이션: "curation",
-  전시: "exhibit",
-  아카이브: "archive",
-};
-const badgeClass = (badge: string) => BADGE_CLASS_MAP[badge] ?? "post";
+const renderedAnswer = computed(() => {
+  const raw = answerText.value?.trim();
+  if (!raw) return "";
+  return marked.parse(raw) as string;
+});
 
-// ─── 홈으로 리셋 ─────────────────────────────────────
-const resetHome = () => {
-  hasSearched.value = false;
+const relatedKeywords = computed(() => {
+  const flat = sources.value.flatMap((item) => item.keywords || []);
+  return [...new Set(flat)].filter(Boolean).slice(0, 14);
+});
+
+const relatedCollections = computed(() => {
+  const map = new Map<string, { title: string; link?: string }>();
+
+  for (const item of sources.value) {
+    const key = item.title_main?.trim();
+    if (!key || map.has(key)) continue;
+    map.set(key, {
+      title: key,
+      link: item.detail_url,
+    });
+  }
+
+  return [...map.values()].slice(0, 14);
+});
+
+const relatedResources = computed(() => {
+  const map = new Map<string, SourceItem>();
+
+  for (const item of sources.value) {
+    const key =
+      item.chunk_id ||
+      `${item.title_main}-${item.title_sub}-${item.detail_url || ""}`;
+    if (!map.has(key)) map.set(key, item);
+  }
+
+  return [...map.values()].slice(0, 12);
+});
+
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value;
+}
+
+function setLanguage(lang: "한국어" | "English") {
+  displayLanguage.value = lang;
+  langMenuOpen.value = false;
+}
+
+function resetHome() {
+  abortController?.abort();
   searchQuery.value = "";
   currentQuery.value = "";
-  sources.value = [];
   answerText.value = "";
+  sources.value = [];
+  hasSearched.value = false;
   isSearching.value = false;
   isGenerating.value = false;
-  abortController?.abort();
-};
+  memberMenuOpen.value = false;
+  langMenuOpen.value = false;
+  conditionOpen.value = false;
+}
 
-// ─── 히스토리 로드 ───────────────────────────────────
-const loadHistory = (item: { query: string }) => {
+function loadHistory(item: HistoryItem) {
   searchQuery.value = item.query;
   handleSearch();
-};
+}
 
-// ─── 검색 실행 (핵심) ────────────────────────────────
-const handleSearch = async () => {
+function searchFromExample(example: string) {
+  searchQuery.value = example;
+  handleSearch();
+}
+
+function searchByKeyword(keyword: string) {
+  searchQuery.value = keyword;
+  handleSearch();
+}
+
+function hideBrokenImage(event: Event) {
+  const target = event.target as HTMLImageElement | null;
+  if (target) target.style.display = "none";
+}
+
+async function handleSearch() {
   const q = searchQuery.value.trim();
-  if (!q || isSearching.value) return;
+  if (!q || isSearching.value || isGenerating.value) return;
 
-  // 이전 요청 취소
   abortController?.abort();
   abortController = new AbortController();
 
-  // 상태 초기화
   hasSearched.value = true;
+  currentQuery.value = q;
+  answerText.value = "";
+  sources.value = [];
   isSearching.value = true;
   isGenerating.value = false;
-  sources.value = [];
-  answerText.value = "";
-  currentQuery.value = q;
+  memberMenuOpen.value = false;
+  langMenuOpen.value = false;
+  conditionOpen.value = false;
 
   addHistory(q);
 
@@ -427,57 +837,124 @@ const handleSearch = async () => {
       q,
       selectedBadge.value,
       {
-        onSources: (s) => {
-          sources.value = s;
+        onSources: (payload: SourceItem[]) => {
+          sources.value = Array.isArray(payload) ? payload : [];
           isSearching.value = false;
           isGenerating.value = true;
         },
-        onToken: (token) => {
+        onToken: (token: string) => {
           answerText.value += token;
         },
         onDone: () => {
+          isSearching.value = false;
           isGenerating.value = false;
         },
-        onError: (err) => {
-          console.error("[CHAT ERROR]", err);
+        onError: (error: unknown) => {
+          console.error("[koreanmemory chat error]", error);
           isSearching.value = false;
           isGenerating.value = false;
         },
       },
       abortController.signal,
     );
-  } catch (e: any) {
-    if (e?.name !== "AbortError") {
-      console.error(e);
+  } catch (error: any) {
+    if (error?.name !== "AbortError") {
+      console.error(error);
     }
     isSearching.value = false;
     isGenerating.value = false;
   }
-};
+}
 </script>
 
 <style scoped>
-/* 히스토리 스크롤 */
-.history_con_wrap--scrollable {
-  max-height: calc(95vh - 220px);
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-.search_main_wrap {
-  min-height: 95vh;
-  flex-direction: column;
-}
-.search_main {
-  flex: 1;
+.hd_logo_link {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 60px 0;
 }
-.inner {
-  max-width: 960px;
+
+.history_con_wrap_scroll {
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history_empty {
+  padding: 16px 4px;
+  font-size: 14px;
+  color: #767676;
+}
+
+.empty_result {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 15px;
+  color: #666;
+}
+
+.resource_meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7a7a7a;
+}
+
+.summary_txt :deep(p) {
+  margin-bottom: 12px;
+  line-height: 1.8;
+}
+
+.summary_txt :deep(ul),
+.summary_txt :deep(ol) {
+  padding-left: 20px;
+  margin: 10px 0 14px;
+}
+
+.summary_txt :deep(li) {
+  margin-bottom: 6px;
+  line-height: 1.7;
+}
+
+.summary_txt :deep(strong) {
+  font-weight: 700;
+}
+
+.summary_txt :deep(h1),
+.summary_txt :deep(h2),
+.summary_txt :deep(h3),
+.summary_txt :deep(h4) {
+  margin: 18px 0 10px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.sc_menu.ty_03 .img_wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search_main_wrap .search_main {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+}
+
+.search_main_wrap .inner {
+  width: 100%;
+}
+
+.search_main .inner {
   text-align: center;
 }
-.inner > img {
+
+.search_main .inner > img.tab_hidden {
+  display: block;
   margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .history_con_wrap_scroll {
+    max-height: calc(100vh - 220px);
+  }
 }
 </style>
