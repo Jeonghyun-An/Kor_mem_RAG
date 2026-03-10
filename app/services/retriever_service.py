@@ -1,6 +1,5 @@
-"""
-검색 서비스 - BGE-M3 임베딩 → Milvus HNSW(IP) 검색 → Min-Max 정규화
-"""
+# app/services/retriever_service.py
+
 from __future__ import annotations
 import os
 import json
@@ -22,20 +21,22 @@ def _normalize_minmax(scores: list[float]) -> list[float]:
     return [(s - lo) / (hi - lo) for s in scores]
 
 
+def _safe_entity_get(ent, key: str, default=None):
+    try:
+        value = ent.get(key)
+        return default if value is None else value
+    except Exception:
+        return default
+
+
 async def retrieve_chunks(
     query: str,
     top_k: int = 8,
     badge_filter: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    쿼리 → 임베딩 → Milvus 검색 → 점수 정규화 → 반환
-    """
-    # 1. 쿼리 임베딩
     q_emb = encode([query], normalize=True)[0]
 
-    # 2. Milvus 검색
     col = get_collection(COLLECTION, dim=1024)
-
     expr = f'badge == "{badge_filter}"' if badge_filter else None
 
     results = col.search(
@@ -52,31 +53,42 @@ async def retrieve_chunks(
         ],
     )
 
-    # 3. 파싱
-    hits = []
+    hits: List[Dict[str, Any]] = []
+
     for hit in results[0]:
         ent = hit.entity
+
+        kw_raw = _safe_entity_get(ent, "keywords", "[]")
+        if isinstance(kw_raw, str):
+            try:
+                keywords = json.loads(kw_raw)
+            except Exception:
+                keywords = []
+        elif isinstance(kw_raw, list):
+            keywords = kw_raw
+        else:
+            keywords = []
+
         hits.append({
-            "chunk_id":       ent.get("chunk_id", ""),
-            "item_id":        ent.get("item_id", ""),
-            "text":           ent.get("text", ""),
-            "title_main":     ent.get("title_main", ""),
-            "title_sub":      ent.get("title_sub", ""),
-            "badge":          ent.get("badge", ""),
-            "keywords":       json.loads(ent.get("keywords", "[]")),
-            "provider":       ent.get("provider", ""),
-            "detail_url":     ent.get("detail_url", ""),
-            "thumbnail":      ent.get("thumbnail", ""),
-            "date_registered": ent.get("date_registered", ""),
-            "raw_score":      float(hit.score),
+            "chunk_id": _safe_entity_get(ent, "chunk_id", ""),
+            "item_id": _safe_entity_get(ent, "item_id", ""),
+            "text": _safe_entity_get(ent, "text", ""),
+            "title_main": _safe_entity_get(ent, "title_main", ""),
+            "title_sub": _safe_entity_get(ent, "title_sub", ""),
+            "badge": _safe_entity_get(ent, "badge", ""),
+            "keywords": keywords,
+            "provider": _safe_entity_get(ent, "provider", ""),
+            "detail_url": _safe_entity_get(ent, "detail_url", ""),
+            "thumbnail": _safe_entity_get(ent, "thumbnail", ""),
+            "date_registered": _safe_entity_get(ent, "date_registered", ""),
+            "raw_score": float(hit.score),
         })
 
-    # 4. Min-Max 정규화
     raw_scores = [h["raw_score"] for h in hits]
     norm = _normalize_minmax(raw_scores)
+
     for i, h in enumerate(hits):
         h["display_score"] = norm[i]
 
-    # 5. 임계값 필터 + top_k 자르기
     filtered = [h for h in hits if h["display_score"] >= SCORE_THRESHOLD]
     return filtered[:top_k]
