@@ -72,7 +72,7 @@ milvus/
 /_FlagEmbedding_local/
 *.err
 
-data/
+
 models/
 checkpoints/
 docker/docker/

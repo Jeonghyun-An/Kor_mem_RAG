@@ -78,4 +78,4 @@ async def startup():
     except Exception as e:
         print(f"  ✗ Embedding error: {e}")
 
-    print(f"\n✅ Startup complete in {time.time() - start:.1f}s")
+    print(f"\n Startup complete in {time.time() - start:.1f}s")

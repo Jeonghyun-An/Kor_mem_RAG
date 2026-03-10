@@ -16,7 +16,7 @@ RUN ln -sf /usr/bin/python3.10 /usr/bin/python
 RUN python -m pip install --upgrade pip setuptools wheel
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+    pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 
 RUN --mount=type=cache,target=/root/.cache/torch_extensions \
     TMPDIR=/tmp \
