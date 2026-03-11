@@ -6,6 +6,11 @@ body {
 a {
   display: inline-block;
 }
+#__nuxt {
+  width: 100%;
+  height: 100%;
+}
+
 .contents_wrap {
   width: 100%;
   height: 100%;
@@ -1181,7 +1186,13 @@ a {
   width: 100%;
   height: 100%;
 }
-
+.resource_meta {
+  color: #7a7a7a;
+  font-size: 12px;
+  margin-top: 6px;
+  word-break: break-all;
+  white-space: initial;
+}
 /*.sc_menu_item.on { background: var(--primary5); border: 1px solid var(--primary);}*/
 /*.sc_menu_item.on .inn_txt { color: var(--primary); background: linear-gradient(transparent 70%, rgba(216, 236, 255, 1) 0);}*/
 /*.sc_menu_item:hover { background: linear-gradient(281.31deg, #88D3FF 3.49%, #267BCB 47.76%, #B47621 83.46%);}*/
